@@ -167,3 +167,4 @@ config/local.py
 data/
 datasets/
 examples/data/
+quicklab/_version.py
