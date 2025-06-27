@@ -10,7 +10,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
 
 from .core.data_manager import DataManager
-from .core.event_system import EventSystem
+from .core.event_system import EventSystem, EventType
 from .core.session_manager import SessionManager
 from .ui.main_window import MainWindow
 from .utils.logger import get_logger, setup_file_logging
@@ -72,7 +72,7 @@ class PyMNEStudioIDE:
         # Connect data manager signals to event system
         self.data_manager.data_loaded.connect(
             lambda data_id, data_obj: self.event_system.publish_simple(
-                self.event_system.EventType.DATA_LOADED, 
+                EventType.DATA_LOADED, 
                 "DataManager", 
                 data_id=data_id, 
                 data_type=type(data_obj).__name__
@@ -81,7 +81,7 @@ class PyMNEStudioIDE:
         
         self.data_manager.data_changed.connect(
             lambda data_id, data_obj: self.event_system.publish_simple(
-                self.event_system.EventType.DATA_CHANGED,
+                EventType.DATA_CHANGED,
                 "DataManager",
                 data_id=data_id,
                 data_type=type(data_obj).__name__
@@ -90,7 +90,7 @@ class PyMNEStudioIDE:
         
         self.data_manager.data_removed.connect(
             lambda data_id: self.event_system.publish_simple(
-                self.event_system.EventType.DATA_REMOVED,
+                EventType.DATA_REMOVED,
                 "DataManager",
                 data_id=data_id
             )
@@ -98,7 +98,7 @@ class PyMNEStudioIDE:
         
         self.data_manager.active_data_changed.connect(
             lambda data_id: self.event_system.publish_simple(
-                self.event_system.EventType.ACTIVE_DATA_CHANGED,
+                EventType.ACTIVE_DATA_CHANGED,
                 "DataManager",
                 data_id=data_id
             )
