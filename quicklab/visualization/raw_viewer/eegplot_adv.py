@@ -25,6 +25,7 @@ from ..common.plot_utils import PlotUtilities
 from ..common.colormaps import EEGColormaps
 from ...core.event_system import EventMixin, EventType
 from ...utils.logger import get_logger
+from ...utils.error_handler import error_boundary, get_error_handler, safe_execute
 
 logger = get_logger(__name__)
 
@@ -302,6 +303,7 @@ class EEGPlotAdvanced(QWidget, EventMixin):
             self.detail_canvas.channel_selection_changed.connect(self._on_channel_selection)
             self.detail_canvas.annotation_added.connect(self._on_annotation_added)
     
+    @error_boundary("EEGPlotAdvanced", show_dialog=True)
     def load_data(self, raw: mne.io.Raw) -> None:
         """Load raw EEG/MEG data into the viewer.
         
@@ -312,40 +314,65 @@ class EEGPlotAdvanced(QWidget, EventMixin):
         """
         try:
             self.raw_data = raw
+            error_handler = get_error_handler()
             
             # Update UI limits and defaults
-            self._update_ui_for_new_data()
+            error_handler.safe_execute(
+                self._update_ui_for_new_data,
+                module_name="EEGPlotAdvanced",
+                context="Updating UI for new data"
+            )
             
             # Create channel groups
-            self.channel_groups = PlotUtilities.create_channel_groups(
-                raw.ch_names, raw.get_montage()
+            self.channel_groups = error_handler.safe_execute(
+                PlotUtilities.create_channel_groups, raw.ch_names, raw.get_montage(),
+                module_name="PlotUtilities",
+                context="Creating channel groups"
+            ) or {}
+            
+            error_handler.safe_execute(
+                self._update_channel_group_combo,
+                module_name="EEGPlotAdvanced",
+                context="Updating channel group combo"
             )
-            self._update_channel_group_combo()
             
             # Load initial data segment
-            self._load_data_segment()
+            error_handler.safe_execute(
+                self._load_data_segment,
+                module_name="EEGPlotAdvanced",
+                context="Loading initial data segment"
+            )
             
             # Update plots
-            self._update_plots()
+            error_handler.safe_execute(
+                self._update_plots,
+                module_name="EEGPlotAdvanced",
+                context="Updating plots"
+            )
             
             # Update status
             duration = raw.n_times / raw.info['sfreq']
-            self.status_label.setText(
-                f"Loaded: {len(raw.ch_names)} channels, "
-                f"{duration:.1f}s, {raw.info['sfreq']:.0f} Hz"
+            status_text = (f"Loaded: {len(raw.ch_names)} channels, "
+                          f"{duration:.1f}s, {raw.info['sfreq']:.0f} Hz")
+            error_handler.safe_execute(
+                self.status_label.setText, status_text,
+                module_name="EEGPlotAdvanced",
+                context="Updating status label"
             )
             
             # Emit event
-            self.emit_event(EventType.DATA_LOADED, 
-                          data_type='Raw', 
-                          n_channels=len(raw.ch_names),
-                          duration=duration)
+            error_handler.safe_execute(
+                self.emit_event, EventType.DATA_LOADED, 
+                data_type='Raw', n_channels=len(raw.ch_names), duration=duration,
+                module_name="EventSystem",
+                context="Emitting data loaded event"
+            )
             
             logger.info(f"Loaded raw data: {len(raw.ch_names)} channels, {duration:.1f}s")
             
         except Exception as e:
-            logger.error(f"Failed to load data: {e}")
-            QMessageBox.critical(self, "Error", f"Failed to load data:\n{e}")
+            error_handler = get_error_handler()
+            error_handler.handle_module_error("EEGPlotAdvanced", e, "Loading raw data")
     
     def _update_ui_for_new_data(self) -> None:
         """Update UI controls based on newly loaded data."""
@@ -380,12 +407,15 @@ class EEGPlotAdvanced(QWidget, EventMixin):
         for group_name in self.channel_groups.keys():
             self.channel_group_combo.addItem(group_name)
     
+    @error_boundary("EEGPlotAdvanced", show_dialog=False)
     def _load_data_segment(self) -> None:
         """Load the current data segment for visualization."""
         if self.raw_data is None:
             return
         
         try:
+            error_handler = get_error_handler()
+            
             # Calculate time range
             start_time = self.current_time
             end_time = min(start_time + self.time_window, 
@@ -395,19 +425,37 @@ class EEGPlotAdvanced(QWidget, EventMixin):
             start_sample = int(start_time * self.raw_data.info['sfreq'])
             end_sample = int(end_time * self.raw_data.info['sfreq'])
             
-            # Load data segment
-            data, times = self.raw_data[:, start_sample:end_sample]
-            self.times = times / self.raw_data.info['sfreq'] + start_time
+            # Load data segment with error handling
+            try:
+                data, times = self.raw_data[:, start_sample:end_sample]
+                self.times = times / self.raw_data.info['sfreq'] + start_time
+                
+                # Store unfiltered data for fallback
+                self._last_unfiltered_data = data
+                
+            except Exception as data_error:
+                logger.error(f"Failed to load data segment: {data_error}")
+                error_handler.handle_module_error("EEGPlotAdvanced", data_error, "Loading data segment")
+                return
             
             # Apply filter preview if enabled
             if self.filter_preview_active and (self.l_freq is not None or self.h_freq is not None):
-                self._apply_filter_preview(data)
+                error_handler.safe_execute(
+                    self._apply_filter_preview, data,
+                    module_name="EEGPlotAdvanced",
+                    context="Applying filter preview"
+                )
             else:
                 self.current_data = data
-                self._update_plots()
+                error_handler.safe_execute(
+                    self._update_plots,
+                    module_name="EEGPlotAdvanced",
+                    context="Updating plots after loading segment"
+                )
             
         except Exception as e:
-            logger.error(f"Failed to load data segment: {e}")
+            error_handler = get_error_handler()
+            error_handler.handle_module_error("EEGPlotAdvanced", e, "Loading data segment")
     
     def _apply_filter_preview(self, data: np.ndarray) -> None:
         """Apply filter preview in background thread."""
@@ -441,22 +489,37 @@ class EEGPlotAdvanced(QWidget, EventMixin):
             self.current_data = self._last_unfiltered_data
             self._update_plots()
     
+    @error_boundary("EEGPlotAdvanced", show_dialog=False)
     def _update_plots(self) -> None:
         """Update both overview and detail plots."""
         if self.current_data is None or self.times is None:
             return
         
         try:
+            error_handler = get_error_handler()
+            
             # Get channels to display
-            channels_to_show = self._get_channels_to_display()
+            channels_to_show = error_handler.safe_execute(
+                self._get_channels_to_display,
+                module_name="EEGPlotAdvanced",
+                context="Getting channels to display"
+            ) or []
+            
+            if not channels_to_show:
+                logger.warning("No channels to display")
+                return
             
             # Update overview plot (all time, subset of channels)
             if self.overview_canvas:
                 overview_data = self.current_data[channels_to_show[:10]]  # Show max 10 channels
-                self.overview_canvas.update_plot(
-                    overview_data, self.times, 
-                    [self.raw_data.ch_names[i] for i in channels_to_show[:10]],
-                    scaling=self.amplitude_scaling * 0.5  # Smaller scale for overview
+                overview_channel_names = [self.raw_data.ch_names[i] for i in channels_to_show[:10]]
+                
+                error_handler.safe_execute(
+                    self.overview_canvas.update_plot,
+                    overview_data, self.times, overview_channel_names,
+                    scaling=self.amplitude_scaling * 0.5,  # Smaller scale for overview
+                    module_name="OverviewCanvas",
+                    context="Updating overview plot"
                 )
             
             # Update detail plot (current window, selected channels)
@@ -464,15 +527,29 @@ class EEGPlotAdvanced(QWidget, EventMixin):
                 detail_data = self.current_data[channels_to_show]
                 channel_names = [self.raw_data.ch_names[i] for i in channels_to_show]
                 
-                self.detail_canvas.update_plot(
+                events = None
+                if self.show_events:
+                    events = error_handler.safe_execute(
+                        self._get_events_in_window,
+                        module_name="EEGPlotAdvanced",
+                        context="Getting events in window"
+                    )
+                
+                bad_channels = self.bad_channels if self.show_bad_channels else None
+                
+                error_handler.safe_execute(
+                    self.detail_canvas.update_plot,
                     detail_data, self.times, channel_names,
                     scaling=self.amplitude_scaling,
-                    events=self._get_events_in_window() if self.show_events else None,
-                    bad_channels=self.bad_channels if self.show_bad_channels else None
+                    events=events,
+                    bad_channels=bad_channels,
+                    module_name="DetailCanvas",
+                    context="Updating detail plot"
                 )
             
         except Exception as e:
-            logger.error(f"Failed to update plots: {e}")
+            error_handler = get_error_handler()
+            error_handler.handle_module_error("EEGPlotAdvanced", e, "Updating plots")
     
     def _get_channels_to_display(self) -> List[int]:
         """Get indices of channels to display based on current settings."""
@@ -664,33 +741,50 @@ class EEGPlotAdvanced(QWidget, EventMixin):
         self.selected_channels = selected_channels
         self.channel_selection_changed.emit(selected_channels)
     
+    @error_boundary("EEGPlotAdvanced", show_dialog=False)
     def _on_annotation_added(self, annotation: Dict[str, Any]) -> None:
         """Handle annotation addition."""
         # Add annotation to raw data
         if self.raw_data is not None:
             try:
+                error_handler = get_error_handler()
+                
                 onset = annotation['onset']
                 duration = annotation.get('duration', 0.0)
                 description = annotation.get('description', 'annotation')
                 
-                # Create MNE annotation
-                mne_annotation = mne.Annotations(
-                    onset=[onset], 
-                    duration=[duration], 
-                    description=[description]
+                # Create MNE annotation with error handling
+                mne_annotation = error_handler.safe_execute(
+                    mne.Annotations,
+                    onset=[onset], duration=[duration], description=[description],
+                    module_name="MNE",
+                    context="Creating annotation"
                 )
+                
+                if mne_annotation is None:
+                    logger.warning("Failed to create MNE annotation")
+                    return
                 
                 # Add to raw data
                 if self.raw_data.annotations is None:
-                    self.raw_data.set_annotations(mne_annotation)
+                    error_handler.safe_execute(
+                        self.raw_data.set_annotations, mne_annotation,
+                        module_name="MNE",
+                        context="Setting annotations"
+                    )
                 else:
-                    self.raw_data.annotations.append(mne_annotation)
+                    error_handler.safe_execute(
+                        self.raw_data.annotations.append, mne_annotation,
+                        module_name="MNE",
+                        context="Appending annotation"
+                    )
                 
                 logger.info(f"Added annotation: {description} at {onset:.2f}s")
                 self.annotation_added.emit(annotation)
                 
             except Exception as e:
-                logger.error(f"Failed to add annotation: {e}")
+                error_handler = get_error_handler()
+                error_handler.handle_module_error("EEGPlotAdvanced", e, "Adding annotation")
     
     def export_view(self, filename: str, format: str = 'png') -> None:
         """Export current view to file.

@@ -14,6 +14,7 @@ import numpy as np
 from PyQt6.QtCore import QObject, pyqtSignal
 
 from ..utils.logger import get_logger
+from ..utils.error_handler import error_boundary, safe_execute, get_error_handler
 
 logger = get_logger(__name__)
 
@@ -53,6 +54,7 @@ class DataManager(QObject):
         
         logger.info("DataManager initialized")
     
+    @error_boundary("DataManager", show_dialog=False)
     def load_data(self, 
                   file_path: Union[str, Path],
                   data_id: Optional[str] = None,
@@ -81,42 +83,77 @@ class DataManager(QObject):
             If data loading fails.
         """
         file_path = Path(file_path)
+        error_handler = get_error_handler()
         
         if not file_path.exists():
-            raise ValueError(f"File does not exist: {file_path}")
+            error_msg = f"File does not exist: {file_path}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
         
         if data_id is None:
             data_id = self._generate_data_id(file_path.name)
         
         try:
             # Determine file type and load accordingly
-            data_obj = self._load_data_by_extension(file_path, preload)
+            data_obj = safe_execute(
+                self._load_data_by_extension, file_path, preload,
+                error_handler=error_handler,
+                module_name="DataManager",
+                context=f"Loading {file_path.suffix} file"
+            )
             
-            # Store data and metadata
-            self._data_objects[data_id] = data_obj
-            self._data_metadata[data_id] = {
-                'file_path': str(file_path),
-                'data_type': type(data_obj).__name__,
-                'loaded_at': np.datetime64('now'),
-                'preload': preload,
-                'modified': False,
-                'history': []
-            }
+            if data_obj is None:
+                raise RuntimeError(f"Failed to load data from {file_path}")
             
-            # Set as active if it's the first data loaded
-            if self._active_data_id is None:
-                self._active_data_id = data_id
-                self.active_data_changed.emit(data_id)
-            
-            logger.info(f"Loaded {type(data_obj).__name__} data: {data_id}")
-            self.data_loaded.emit(data_id, data_obj)
-            
-            return data_id
+            # Store data and metadata with error handling
+            try:
+                self._data_objects[data_id] = data_obj
+                self._data_metadata[data_id] = {
+                    'file_path': str(file_path),
+                    'data_type': type(data_obj).__name__,
+                    'loaded_at': np.datetime64('now'),
+                    'preload': preload,
+                    'modified': False,
+                    'history': []
+                }
+                
+                # Set as active if it's the first data loaded
+                if self._active_data_id is None:
+                    self._active_data_id = data_id
+                    safe_execute(
+                        self.active_data_changed.emit, data_id,
+                        error_handler=error_handler,
+                        module_name="DataManager",
+                        context="Emitting active data changed signal"
+                    )
+                
+                logger.info(f"Loaded {type(data_obj).__name__} data: {data_id}")
+                
+                # Emit signal safely
+                safe_execute(
+                    self.data_loaded.emit, data_id, data_obj,
+                    error_handler=error_handler,
+                    module_name="DataManager",
+                    context="Emitting data loaded signal"
+                )
+                
+                return data_id
+                
+            except Exception as metadata_error:
+                # Clean up if metadata storage fails
+                if data_id in self._data_objects:
+                    del self._data_objects[data_id]
+                if data_id in self._data_metadata:
+                    del self._data_metadata[data_id]
+                raise RuntimeError(f"Failed to store data metadata: {metadata_error}")
             
         except Exception as e:
-            logger.error(f"Failed to load data from {file_path}: {e}")
-            raise RuntimeError(f"Failed to load data: {e}") from e
+            error_msg = f"Failed to load data from {file_path}: {e}"
+            logger.error(error_msg)
+            error_handler.handle_module_error("DataManager", e, f"Loading {file_path}")
+            raise RuntimeError(error_msg) from e
     
+    @error_boundary("DataManager", show_dialog=False)
     def _load_data_by_extension(self, file_path: Path, preload: bool) -> Any:
         """Load data based on file extension.
         
@@ -133,33 +170,38 @@ class DataManager(QObject):
             The loaded MNE data object.
         """
         suffix = file_path.suffix.lower()
+        error_handler = get_error_handler()
         
-        # Raw data formats
-        if suffix == '.fif':
-            return mne.io.read_raw_fif(file_path, preload=preload)
-        elif suffix == '.edf':
-            return mne.io.read_raw_edf(file_path, preload=preload)
-        elif suffix == '.bdf':
-            return mne.io.read_raw_bdf(file_path, preload=preload)
-        elif suffix == '.gdf':
-            return mne.io.read_raw_gdf(file_path, preload=preload)
-        elif suffix == '.set':
-            return mne.io.read_raw_eeglab(file_path, preload=preload)
-        elif suffix == '.cnt':
-            return mne.io.read_raw_cnt(file_path, preload=preload)
-        elif suffix == '.vhdr':
-            return mne.io.read_raw_brainvision(file_path, preload=preload)
-        
-        # Epochs data
-        elif suffix == '.fif' and 'epo' in file_path.name:
-            return mne.read_epochs(file_path, preload=preload)
-        
-        # Evoked data
-        elif suffix == '.fif' and 'ave' in file_path.name:
-            return mne.read_evokeds(file_path)
-        
-        else:
-            raise ValueError(f"Unsupported file format: {suffix}")
+        # Raw data formats with error handling
+        try:
+            if suffix == '.fif':
+                # Check if it's epochs or evoked data first
+                if 'epo' in file_path.name:
+                    return mne.read_epochs(file_path, preload=preload)
+                elif 'ave' in file_path.name:
+                    return mne.read_evokeds(file_path)
+                else:
+                    return mne.io.read_raw_fif(file_path, preload=preload)
+            elif suffix == '.edf':
+                return mne.io.read_raw_edf(file_path, preload=preload)
+            elif suffix == '.bdf':
+                return mne.io.read_raw_bdf(file_path, preload=preload)
+            elif suffix == '.gdf':
+                return mne.io.read_raw_gdf(file_path, preload=preload)
+            elif suffix == '.set':
+                return mne.io.read_raw_eeglab(file_path, preload=preload)
+            elif suffix == '.cnt':
+                return mne.io.read_raw_cnt(file_path, preload=preload)
+            elif suffix == '.vhdr':
+                return mne.io.read_raw_brainvision(file_path, preload=preload)
+            else:
+                raise ValueError(f"Unsupported file format: {suffix}")
+                
+        except Exception as e:
+            error_msg = f"Failed to load {suffix} file: {e}"
+            logger.error(error_msg)
+            error_handler.handle_module_error("MNE", e, f"Loading {suffix} file")
+            raise RuntimeError(error_msg) from e
     
     def get_data(self, data_id: str) -> Any:
         """Get data object by ID.
@@ -320,6 +362,7 @@ class DataManager(QObject):
         logger.info(f"Removed data: {data_id}")
         self.data_removed.emit(data_id)
     
+    @error_boundary("DataManager", show_dialog=False)
     def save_data(self, data_id: str, file_path: Union[str, Path], 
                   overwrite: bool = False) -> None:
         """Save data to file.
@@ -344,6 +387,7 @@ class DataManager(QObject):
             raise KeyError(f"Data ID not found: {data_id}")
         
         file_path = Path(file_path)
+        error_handler = get_error_handler()
         
         if file_path.exists() and not overwrite:
             raise FileExistsError(f"File exists: {file_path}")
@@ -351,9 +395,17 @@ class DataManager(QObject):
         data_obj = self._data_objects[data_id]
         
         try:
-            # Save based on data type
+            # Save based on data type with error handling
             if hasattr(data_obj, 'save'):
-                data_obj.save(file_path, overwrite=overwrite)
+                save_result = safe_execute(
+                    data_obj.save, file_path, overwrite=overwrite,
+                    error_handler=error_handler,
+                    module_name="MNE",
+                    context=f"Saving {type(data_obj).__name__} to {file_path}"
+                )
+                
+                if save_result is None:
+                    raise RuntimeError(f"Failed to save {type(data_obj).__name__} data")
             else:
                 raise ValueError(f"Cannot save data type: {type(data_obj)}")
             
@@ -364,8 +416,10 @@ class DataManager(QObject):
             logger.info(f"Saved data: {data_id} to {file_path}")
             
         except Exception as e:
-            logger.error(f"Failed to save data {data_id}: {e}")
-            raise RuntimeError(f"Failed to save data: {e}") from e
+            error_msg = f"Failed to save data {data_id}: {e}"
+            logger.error(error_msg)
+            error_handler.handle_module_error("DataManager", e, f"Saving {data_id} to {file_path}")
+            raise RuntimeError(error_msg) from e
     
     def _generate_data_id(self, filename: str) -> str:
         """Generate a unique data ID.

@@ -20,6 +20,7 @@ from .widgets.dock_manager import DockManager
 from .widgets.data_browser import DataBrowser
 from .widgets.status_widget import StatusWidget
 from ..utils.logger import get_logger
+from ..utils.error_handler import error_boundary, get_error_handler
 
 logger = get_logger(__name__)
 
@@ -308,63 +309,83 @@ class MainWindow(QMainWindow, EventMixin):
         self.settings.setValue("windowState", self.saveState())
         self.settings.setValue("splitterState", self.main_splitter.saveState())
     
+    @error_boundary("MainWindow", show_dialog=True)
     def _open_data_file(self) -> None:
         """Open a data file dialog and load the selected file."""
-        file_dialog = QFileDialog(self)
-        file_dialog.setWindowTitle("Open Data File")
-        file_dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
-        
-        # Set file filters for supported formats
-        filters = [
-            "All Supported (*.fif *.edf *.bdf *.gdf *.set *.cnt *.vhdr)",
-            "FIF files (*.fif)",
-            "EDF files (*.edf)",
-            "BDF files (*.bdf)",
-            "GDF files (*.gdf)",
-            "EEGLAB files (*.set)",
-            "CNT files (*.cnt)",
-            "BrainVision files (*.vhdr)",
-            "All files (*.*)"
-        ]
-        file_dialog.setNameFilters(filters)
-        
-        if file_dialog.exec() == QFileDialog.DialogCode.Accepted:
-            file_path = file_dialog.selectedFiles()[0]
-            try:
-                data_id = self.data_manager.load_data(file_path)
-                self.status_bar.showMessage(f"Loaded data: {data_id}", 3000)
-                logger.info(f"Loaded data file: {file_path}")
-            except Exception as e:
-                QMessageBox.critical(self, "Error Loading Data", 
-                                   f"Failed to load data file:\n{e}")
-                logger.error(f"Failed to load data file {file_path}: {e}")
+        try:
+            file_dialog = QFileDialog(self)
+            file_dialog.setWindowTitle("Open Data File")
+            file_dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+            
+            # Set file filters for supported formats
+            filters = [
+                "All Supported (*.fif *.edf *.bdf *.gdf *.set *.cnt *.vhdr)",
+                "FIF files (*.fif)",
+                "EDF files (*.edf)",
+                "BDF files (*.bdf)",
+                "GDF files (*.gdf)",
+                "EEGLAB files (*.set)",
+                "CNT files (*.cnt)",
+                "BrainVision files (*.vhdr)",
+                "All files (*.*)"
+            ]
+            file_dialog.setNameFilters(filters)
+            
+            if file_dialog.exec() == QFileDialog.DialogCode.Accepted:
+                file_path = file_dialog.selectedFiles()[0]
+                error_handler = get_error_handler()
+                data_id = error_handler.safe_execute(
+                    self.data_manager.load_data, file_path,
+                    module_name="DataManager",
+                    context=f"Loading {file_path}"
+                )
+                
+                if data_id:
+                    self.status_bar.showMessage(f"Loaded data: {data_id}", 3000)
+                    logger.info(f"Loaded data file: {file_path}")
+                else:
+                    self.status_bar.showMessage("Failed to load data file", 5000)
+                    
+        except Exception as e:
+            error_handler = get_error_handler()
+            error_handler.handle_module_error("MainWindow", e, "Opening data file dialog")
     
+    @error_boundary("MainWindow", show_dialog=True)
     def _save_data_file(self) -> None:
         """Save the current active data."""
-        active_id, active_data = self.data_manager.get_active_data()
-        if active_data is None:
-            QMessageBox.information(self, "No Data", "No data to save.")
-            return
-        
-        file_dialog = QFileDialog(self)
-        file_dialog.setWindowTitle("Save Data File")
-        file_dialog.setFileMode(QFileDialog.FileMode.AnyFile)
-        file_dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
-        file_dialog.setDefaultSuffix("fif")
-        
-        filters = ["FIF files (*.fif)", "All files (*.*)"]
-        file_dialog.setNameFilters(filters)
-        
-        if file_dialog.exec() == QFileDialog.DialogCode.Accepted:
-            file_path = file_dialog.selectedFiles()[0]
-            try:
-                self.data_manager.save_data(active_id, file_path, overwrite=True)
-                self.status_bar.showMessage(f"Saved data: {active_id}", 3000)
-                logger.info(f"Saved data to: {file_path}")
-            except Exception as e:
-                QMessageBox.critical(self, "Error Saving Data",
-                                   f"Failed to save data:\n{e}")
-                logger.error(f"Failed to save data: {e}")
+        try:
+            active_id, active_data = self.data_manager.get_active_data()
+            if active_data is None:
+                QMessageBox.information(self, "No Data", "No data to save.")
+                return
+            
+            file_dialog = QFileDialog(self)
+            file_dialog.setWindowTitle("Save Data File")
+            file_dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+            file_dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+            file_dialog.setDefaultSuffix("fif")
+            
+            filters = ["FIF files (*.fif)", "All files (*.*)"]
+            file_dialog.setNameFilters(filters)
+            
+            if file_dialog.exec() == QFileDialog.DialogCode.Accepted:
+                file_path = file_dialog.selectedFiles()[0]
+                error_handler = get_error_handler()
+                success = error_handler.safe_execute(
+                    self.data_manager.save_data, active_id, file_path, overwrite=True,
+                    module_name="DataManager",
+                    context=f"Saving to {file_path}"
+                )
+                
+                if success:
+                    self.status_bar.showMessage(f"Saved data: {active_id}", 3000)
+                    logger.info(f"Saved data to: {file_path}")
+                else:
+                    self.status_bar.showMessage("Failed to save data file", 5000)
+                    
+        except Exception as e:
+            error_handler = get_error_handler()
+            error_handler.handle_module_error("MainWindow", e, "Saving data file dialog")
     
     def _new_session(self) -> None:
         """Create a new session."""
@@ -405,20 +426,38 @@ class MainWindow(QMainWindow, EventMixin):
         webbrowser.open("https://pymne-studio.readthedocs.io")
     
     # Event handling methods
+    @error_boundary("MainWindow", show_dialog=False)
     def _on_data_loaded(self, data_id: str, data_obj: Any) -> None:
         """Handle data loaded event."""
-        self.save_action.setEnabled(True)
-        self.status_widget.update_data_info(data_id, data_obj)
-        
-        # Load data into EEG plot widget if it's Raw data
-        if hasattr(data_obj, 'info') and hasattr(data_obj, 'get_data'):
-            try:
-                self.eegplot_widget.load_data(data_obj)
-                logger.info(f"Loaded data into EEG plot widget: {data_id}")
-            except Exception as e:
-                logger.error(f"Failed to load data into EEG widget: {e}")
-        
-        logger.debug(f"UI updated for loaded data: {data_id}")
+        try:
+            self.save_action.setEnabled(True)
+            
+            # Update status widget with error handling
+            error_handler = get_error_handler()
+            error_handler.safe_execute(
+                self.status_widget.update_data_info, data_id, data_obj,
+                module_name="StatusWidget",
+                context="Updating data info"
+            )
+            
+            # Load data into EEG plot widget if it's Raw data
+            if hasattr(data_obj, 'info') and hasattr(data_obj, 'get_data'):
+                success = error_handler.safe_execute(
+                    self.eegplot_widget.load_data, data_obj,
+                    module_name="EEGPlotWidget",
+                    context=f"Loading data {data_id}"
+                )
+                
+                if success:
+                    logger.info(f"Loaded data into EEG plot widget: {data_id}")
+                else:
+                    logger.warning(f"Failed to load data into EEG widget: {data_id}")
+            
+            logger.debug(f"UI updated for loaded data: {data_id}")
+            
+        except Exception as e:
+            error_handler = get_error_handler()
+            error_handler.handle_module_error("MainWindow", e, f"Handling data loaded event for {data_id}")
     
     def _on_data_changed(self, data_id: str, data_obj: Any) -> None:
         """Handle data changed event."""

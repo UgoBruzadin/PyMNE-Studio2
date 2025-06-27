@@ -14,6 +14,7 @@ from .core.event_system import EventSystem, EventType
 from .core.session_manager import SessionManager
 from .ui.main_window import MainWindow
 from .utils.logger import get_logger, setup_file_logging
+from .utils.error_handler import initialize_error_handling, error_boundary
 
 logger = get_logger(__name__)
 
@@ -32,40 +33,55 @@ class PyMNEStudioIDE:
     
     def __init__(self, app_args: Optional[List[str]] = None):
         """Initialize the PyMNE Studio IDE."""
-        # Initialize Qt application
-        if app_args is None:
-            app_args = sys.argv
-        
-        # Check if QApplication already exists
-        self.app = QApplication.instance()
-        if self.app is None:
-            self.app = QApplication(app_args)
-        
-        # Set application properties
-        self.app.setApplicationName("PyMNE Studio")
-        self.app.setApplicationVersion("0.1.0")
-        self.app.setOrganizationName("Ugo Bruzadin")
-        self.app.setOrganizationDomain("github.com/UgoBruzadin")
-        
-        # Initialize core systems
-        self.event_system = EventSystem()
-        self.data_manager = DataManager()
-        self.session_manager = SessionManager()
-        
-        # Connect core systems
-        self._connect_core_systems()
-        
-        # Initialize main window
-        self.main_window = MainWindow(
-            data_manager=self.data_manager,
-            event_system=self.event_system,
-            session_manager=self.session_manager
-        )
-        
-        # Set up logging
-        self._setup_logging()
-        
-        logger.info("PyMNE Studio IDE initialized")
+        try:
+            # Initialize error handling first
+            self.error_handler = initialize_error_handling()
+            
+            # Initialize Qt application
+            if app_args is None:
+                app_args = sys.argv
+            
+            # Check if QApplication already exists
+            self.app = QApplication.instance()
+            if self.app is None:
+                self.app = QApplication(app_args)
+            
+            # Set application properties
+            self.app.setApplicationName("PyMNE Studio")
+            self.app.setApplicationVersion("0.1.0")
+            self.app.setOrganizationName("Ugo Bruzadin")
+            self.app.setOrganizationDomain("github.com/UgoBruzadin")
+            
+            # Initialize core systems with error handling
+            self.event_system = EventSystem()
+            self.data_manager = DataManager()
+            self.session_manager = SessionManager()
+            
+            # Connect core systems
+            self._connect_core_systems()
+            
+            # Initialize main window
+            self.main_window = MainWindow(
+                data_manager=self.data_manager,
+                event_system=self.event_system,
+                session_manager=self.session_manager
+            )
+            
+            # Set up logging
+            self._setup_logging()
+            
+            logger.info("PyMNE Studio IDE initialized successfully")
+            
+        except Exception as e:
+            logger.critical(f"Failed to initialize PyMNE Studio: {e}")
+            # Try to show error even if initialization failed
+            try:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.critical(None, "Initialization Error", 
+                                   f"Failed to initialize PyMNE Studio:\n{e}")
+            except Exception:
+                print(f"CRITICAL: Failed to initialize PyMNE Studio: {e}")
+            raise
     
     def _connect_core_systems(self) -> None:
         """Connect core systems together."""
@@ -114,7 +130,8 @@ class PyMNEStudioIDE:
         except Exception as e:
             logger.warning(f"Could not set up file logging: {e}")
     
-    def load_data(self, file_path: str, data_id: Optional[str] = None) -> str:
+    @error_boundary("PyMNEStudioIDE", show_dialog=True)
+    def load_data(self, file_path: str, data_id: Optional[str] = None) -> Optional[str]:
         """Load data into the application.
         
         Parameters
@@ -126,10 +143,15 @@ class PyMNEStudioIDE:
             
         Returns
         -------
-        str
-            The data identifier for the loaded data.
+        str or None
+            The data identifier for the loaded data, or None if failed.
         """
-        return self.data_manager.load_data(file_path, data_id)
+        try:
+            return self.data_manager.load_data(file_path, data_id)
+        except Exception as e:
+            logger.error(f"Failed to load data from {file_path}: {e}")
+            self.error_handler.handle_module_error("DataLoading", e, f"Loading {file_path}")
+            return None
     
     def show(self) -> None:
         """Show the main application window."""
