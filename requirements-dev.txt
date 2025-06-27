@@ -1,0 +1,34 @@
+# Development dependencies
+-r requirements.txt
+
+# Testing
+pytest>=6.0.0
+pytest-cov>=2.12.0
+pytest-qt>=4.0.0
+pytest-xvfb>=2.0.0
+
+# Code quality
+black>=22.0.0
+isort>=5.10.0
+flake8>=4.0.0
+mypy>=0.910
+pre-commit>=2.15.0
+
+# Documentation
+sphinx>=4.0.0
+sphinx-rtd-theme>=1.0.0
+sphinx-gallery>=0.10.0
+numpydoc>=1.4.0
+pillow>=8.0.0
+memory-profiler>=0.60.0
+
+# Advanced analysis packages
+autoreject>=0.3.0
+mne-icalabel>=0.4.0
+fooof>=1.0.0
+pyriemann>=0.3.0
+mne-connectivity>=0.3.0
+mne-bids>=0.12.0
+mayavi>=4.7.0
+pyvista>=0.35.0
+pyvistaqt>=0.9.0
