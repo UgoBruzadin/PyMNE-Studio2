@@ -1,4 +1,4 @@
-"""Main QuickLab application entry point."""
+"""Main PyMNE Studio application entry point."""
 
 import sys
 import logging
@@ -18,11 +18,11 @@ from .utils.logger import get_logger, setup_file_logging
 logger = get_logger(__name__)
 
 
-class QuickLabIDE:
-    """Main QuickLab IDE application.
+class PyMNEStudioIDE:
+    """Main PyMNE Studio IDE application.
     
     This class manages the overall application lifecycle, initializes core
-    systems, and provides the main entry point for the QuickLab IDE.
+    systems, and provides the main entry point for the PyMNE Studio IDE.
     
     Parameters
     ----------
@@ -31,7 +31,7 @@ class QuickLabIDE:
     """
     
     def __init__(self, app_args: Optional[List[str]] = None):
-        """Initialize the QuickLab IDE."""
+        """Initialize the PyMNE Studio IDE."""
         # Initialize Qt application
         if app_args is None:
             app_args = sys.argv
@@ -42,10 +42,10 @@ class QuickLabIDE:
             self.app = QApplication(app_args)
         
         # Set application properties
-        self.app.setApplicationName("QuickLab")
+        self.app.setApplicationName("PyMNE Studio")
         self.app.setApplicationVersion("0.1.0")
-        self.app.setOrganizationName("QuickLab Development Team")
-        self.app.setOrganizationDomain("quicklab.org")
+        self.app.setOrganizationName("Ugo Bruzadin")
+        self.app.setOrganizationDomain("github.com/UgoBruzadin")
         
         # Initialize core systems
         self.event_system = EventSystem()
@@ -65,7 +65,7 @@ class QuickLabIDE:
         # Set up logging
         self._setup_logging()
         
-        logger.info("QuickLab IDE initialized")
+        logger.info("PyMNE Studio IDE initialized")
     
     def _connect_core_systems(self) -> None:
         """Connect core systems together."""
@@ -108,7 +108,7 @@ class QuickLabIDE:
         """Set up application logging."""
         try:
             # Create logs directory in user's home
-            log_dir = Path.home() / ".quicklab" / "logs"
+            log_dir = Path.home() / ".pymne-studio" / "logs"
             setup_file_logging(log_dir)
             logger.info(f"File logging set up in: {log_dir}")
         except Exception as e:
@@ -137,7 +137,7 @@ class QuickLabIDE:
         self.main_window.raise_()
         self.main_window.activateWindow()
         
-        logger.info("QuickLab main window shown")
+        logger.info("PyMNE Studio main window shown")
     
     def run(self) -> int:
         """Run the application event loop.
@@ -152,12 +152,12 @@ class QuickLabIDE:
     
     def quit(self) -> None:
         """Quit the application."""
-        logger.info("Quitting QuickLab")
+        logger.info("Quitting PyMNE Studio")
         self.app.quit()
 
 
 def main() -> int:
-    """Main entry point for QuickLab.
+    """Main entry point for PyMNE Studio.
     
     Returns
     -------
@@ -168,8 +168,8 @@ def main() -> int:
     import argparse
     
     parser = argparse.ArgumentParser(
-        description="QuickLab: Advanced EEG/MEG Analysis IDE",
-        prog="quicklab"
+        description="PyMNE Studio: Advanced EEG/MEG Analysis IDE",
+        prog="pymne-studio"
     )
     
     parser.add_argument(
@@ -187,7 +187,7 @@ def main() -> int:
     parser.add_argument(
         "--version",
         action="version",
-        version="QuickLab 0.1.0"
+        version="PyMNE Studio 0.1.0"
     )
     
     args = parser.parse_args()
@@ -198,7 +198,7 @@ def main() -> int:
     
     try:
         # Initialize and run application
-        app = QuickLabIDE()
+        app = PyMNEStudioIDE()
         
         # Load data file if provided
         if args.data_file:

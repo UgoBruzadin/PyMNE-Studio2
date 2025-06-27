@@ -61,7 +61,7 @@ class MainWindow(QMainWindow, EventMixin):
         self.set_event_system(event_system)
         
         # Window properties
-        self.setWindowTitle("QuickLab - EEG/MEG Analysis IDE")
+        self.setWindowTitle("PyMNE Studio - EEG/MEG Analysis IDE")
         self.setMinimumSize(1200, 800)
         self.resize(1600, 1000)
         
@@ -226,8 +226,12 @@ class MainWindow(QMainWindow, EventMixin):
         # Raw data viewer dock
         raw_dock = QDockWidget("Raw Data Viewer", self)
         raw_dock.setObjectName("RawDataViewer")
-        raw_widget = QWidget()  # Placeholder
-        raw_dock.setWidget(raw_widget)
+        
+        # Import and create the advanced EEG plot widget
+        from ..visualization.raw_viewer.eegplot_adv import EEGPlotAdvanced
+        self.eegplot_widget = EEGPlotAdvanced()
+        self.eegplot_widget.set_event_system(self.event_system)
+        raw_dock.setWidget(self.eegplot_widget)
         self.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, raw_dock)
         
         # Epochs viewer dock
@@ -258,6 +262,10 @@ class MainWindow(QMainWindow, EventMixin):
             'ica_viewer': ica_dock,
             'preprocessing': preprocessing_dock,
         }
+        
+        # Connect EEG plot widget signals
+        self.eegplot_widget.time_selection_changed.connect(self._on_time_selection_changed)
+        self.eegplot_widget.channel_selection_changed.connect(self._on_channel_selection_changed)
         
         # Add dock visibility actions to menu
         for name, dock in self.docks.items():
@@ -385,22 +393,31 @@ class MainWindow(QMainWindow, EventMixin):
     
     def _show_about(self) -> None:
         """Show the About dialog."""
-        QMessageBox.about(self, "About QuickLab",
-                         "<h3>QuickLab 0.1.0</h3>"
+        QMessageBox.about(self, "About PyMNE Studio",
+                         "<h3>PyMNE Studio 0.1.0</h3>"
                          "<p>An advanced EEG/MEG analysis IDE for MNE-Python</p>"
                          "<p>Built with PyQt6 and MNE-Python</p>"
-                         "<p>© 2024 QuickLab Development Team</p>")
+                         "<p>© 2024 Ugo Bruzadin</p>")
     
     def _show_docs(self) -> None:
         """Open the documentation."""
         import webbrowser
-        webbrowser.open("https://quicklab.readthedocs.io")
+        webbrowser.open("https://pymne-studio.readthedocs.io")
     
     # Event handling methods
     def _on_data_loaded(self, data_id: str, data_obj: Any) -> None:
         """Handle data loaded event."""
         self.save_action.setEnabled(True)
         self.status_widget.update_data_info(data_id, data_obj)
+        
+        # Load data into EEG plot widget if it's Raw data
+        if hasattr(data_obj, 'info') and hasattr(data_obj, 'get_data'):
+            try:
+                self.eegplot_widget.load_data(data_obj)
+                logger.info(f"Loaded data into EEG plot widget: {data_id}")
+            except Exception as e:
+                logger.error(f"Failed to load data into EEG widget: {e}")
+        
         logger.debug(f"UI updated for loaded data: {data_id}")
     
     def _on_data_changed(self, data_id: str, data_obj: Any) -> None:
@@ -434,6 +451,20 @@ class MainWindow(QMainWindow, EventMixin):
         error_msg = event.data.get('error', 'Unknown error')
         self.status_bar.showMessage(f"Analysis failed: {error_msg}", 5000)
         QMessageBox.warning(self, "Analysis Failed", f"Analysis failed:\n{error_msg}")
+    
+    def _on_time_selection_changed(self, time_range: tuple) -> None:
+        """Handle time selection changes from EEG plot widget."""
+        start_time, end_time = time_range
+        self.status_bar.showMessage(f"Time selection: {start_time:.2f}s - {end_time:.2f}s", 3000)
+        logger.debug(f"Time selection changed: {start_time:.2f}s - {end_time:.2f}s")
+    
+    def _on_channel_selection_changed(self, channels: list) -> None:
+        """Handle channel selection changes from EEG plot widget."""
+        if channels:
+            self.status_bar.showMessage(f"Selected {len(channels)} channel(s): {', '.join(channels[:3])}{'...' if len(channels) > 3 else ''}", 3000)
+        else:
+            self.status_bar.showMessage("No channels selected", 2000)
+        logger.debug(f"Channel selection changed: {channels}")
     
     def closeEvent(self, event) -> None:
         """Handle window close event."""

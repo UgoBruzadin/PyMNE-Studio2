@@ -1,6 +1,6 @@
-"""QuickLab: An advanced EEG/MEG analysis IDE for MNE-Python.
+"""PyMNE Studio: An advanced EEG/MEG analysis IDE for MNE-Python.
 
-QuickLab provides an intuitive, modular environment for neurophysiological
+PyMNE Studio provides an intuitive, modular environment for neurophysiological
 data analysis that combines the interactive capabilities of EEGLAB with
 the robust data structures and analysis methods of MNE-Python.
 """
@@ -16,7 +16,7 @@ from .core.session_manager import SessionManager
 from .core.event_system import EventSystem
 
 # Main application
-from .main import QuickLabIDE
+from .main import PyMNEStudioIDE
 
 # Utility imports
 from .utils import logger
@@ -26,6 +26,6 @@ __all__ = [
     "DataManager", 
     "SessionManager",
     "EventSystem",
-    "QuickLabIDE",
+    "PyMNEStudioIDE",
     "logger",
 ]

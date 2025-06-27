@@ -1,10 +1,10 @@
-# QuickLab for MNE-Python
+# PyMNE Studio
 
 An advanced EEG/MEG analysis IDE inspired by EEGLAB, built for MNE-Python workflows.
 
 ## Overview
 
-QuickLab is a comprehensive graphical user interface for neurophysiological data analysis that combines the interactive capabilities of EEGLAB with the robust data structures and analysis methods of MNE-Python. It provides an intuitive, modular environment for EEG/MEG preprocessing, visualization, and analysis.
+PyMNE Studio is a comprehensive graphical user interface for neurophysiological data analysis that combines the interactive capabilities of EEGLAB with the robust data structures and analysis methods of MNE-Python. It provides an intuitive, modular environment for EEG/MEG preprocessing, visualization, and analysis.
 
 ## Key Features
 
@@ -50,24 +50,24 @@ QuickLab is a comprehensive graphical user interface for neurophysiological data
 ### Quick Install
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/quicklab.git
-cd quicklab
+git clone https://github.com/UgoBruzadin/PyMNE-Studio.git
+cd PyMNE-Studio
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Install QuickLab
+# Install PyMNE Studio
 pip install -e .
 
-# Launch QuickLab
-quicklab
+# Launch PyMNE Studio
+pymne-studio
 ```
 
 ### Development Install
 ```bash
 # Clone with development dependencies
-git clone https://github.com/yourusername/quicklab.git
-cd quicklab
+git clone https://github.com/UgoBruzadin/PyMNE-Studio.git
+cd PyMNE-Studio
 
 # Install in development mode
 pip install -e ".[dev]"
@@ -83,11 +83,11 @@ cd docs && make html
 
 ### Loading Data
 ```python
-import quicklab
-from quicklab import QuickLabIDE
+import pymne_studio
+from pymne_studio import PyMNEStudioIDE
 
 # Launch the IDE
-app = QuickLabIDE()
+app = PyMNEStudioIDE()
 
 # Load your MNE data
 raw = mne.io.read_raw_fif('your_data.fif')
@@ -143,22 +143,22 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 4. Submit a pull request
 
 ### Reporting Issues
-Please use the [GitHub Issues](https://github.com/yourusername/quicklab/issues) page to report bugs or request features.
+Please use the [GitHub Issues](https://github.com/UgoBruzadin/PyMNE-Studio/issues) page to report bugs or request features.
 
 ## License
 
-QuickLab is released under the BSD 3-Clause License. See [LICENSE](LICENSE) for details.
+PyMNE Studio is released under the BSD 3-Clause License. See [LICENSE](LICENSE) for details.
 
 ## Citation
 
-If you use QuickLab in your research, please cite:
+If you use PyMNE Studio in your research, please cite:
 
 ```bibtex
-@software{quicklab2024,
-  title={QuickLab: An Advanced EEG/MEG Analysis IDE for MNE-Python},
-  author={Your Name},
+@software{pymne_studio2024,
+  title={PyMNE Studio: An Advanced EEG/MEG Analysis IDE for MNE-Python},
+  author={Ugo Bruzadin},
   year={2024},
-  url={https://github.com/yourusername/quicklab}
+  url={https://github.com/UgoBruzadin/PyMNE-Studio}
 }
 ```
 
@@ -170,10 +170,10 @@ If you use QuickLab in your research, please cite:
 
 ## Support
 
-- **Documentation**: [quicklab.readthedocs.io](https://quicklab.readthedocs.io)
-- **Forum**: [GitHub Discussions](https://github.com/yourusername/quicklab/discussions)
-- **Email**: support@quicklab.org
+- **Documentation**: [pymne-studio.readthedocs.io](https://pymne-studio.readthedocs.io)
+- **Forum**: [GitHub Discussions](https://github.com/UgoBruzadin/PyMNE-Studio/discussions)
+- **Email**: ugobruzadin@gmail.com
 
 ---
 
-**QuickLab**: Making neurophysiological data analysis more intuitive, powerful, and accessible.
+**PyMNE Studio**: Making neurophysiological data analysis more intuitive, powerful, and accessible.

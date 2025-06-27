@@ -1,4 +1,4 @@
-"""Command line interface for QuickLab."""
+"""Command line interface for PyMNE Studio."""
 
 import sys
 import argparse
@@ -11,7 +11,7 @@ logger = get_logger(__name__)
 
 
 def main() -> int:
-    """Main CLI entry point for QuickLab.
+    """Main CLI entry point for PyMNE Studio.
     
     Returns
     -------
@@ -19,8 +19,8 @@ def main() -> int:
         Exit code.
     """
     parser = argparse.ArgumentParser(
-        description="QuickLab: Advanced EEG/MEG Analysis IDE for MNE-Python",
-        prog="quicklab"
+        description="PyMNE Studio: Advanced EEG/MEG Analysis IDE for MNE-Python",
+        prog="pymne-studio"
     )
     
     parser.add_argument(
@@ -32,7 +32,7 @@ def main() -> int:
     parser.add_argument(
         "--version",
         action="version",
-        version="QuickLab 0.1.0"
+        version="PyMNE Studio 0.1.0"
     )
     
     parser.add_argument(
