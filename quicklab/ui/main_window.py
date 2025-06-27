@@ -7,11 +7,11 @@ from pathlib import Path
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QMenuBar, QToolBar, QStatusBar, QDockWidget,
-    QAction, QFileDialog, QMessageBox, QApplication,
+    QFileDialog, QMessageBox, QApplication,
     QSplitter, QTabWidget
 )
 from PyQt6.QtCore import Qt, QSettings, QTimer, pyqtSignal
-from PyQt6.QtGui import QKeySequence, QIcon
+from PyQt6.QtGui import QKeySequence, QIcon, QAction
 
 from ..core.data_manager import DataManager
 from ..core.event_system import EventSystem, EventType, EventMixin

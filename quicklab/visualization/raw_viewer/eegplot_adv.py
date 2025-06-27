@@ -12,10 +12,10 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QGroupBox,
     QSlider, QLabel, QPushButton, QComboBox, QSpinBox, QCheckBox,
     QScrollArea, QFrame, QButtonGroup, QRadioButton, QToolButton,
-    QMenu, QAction, QMessageBox, QProgressBar
+    QMenu, QMessageBox, QProgressBar
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QThread, pyqtSlot
-from PyQt6.QtGui import QFont, QIcon, QKeySequence
+from PyQt6.QtGui import QFont, QIcon, QKeySequence, QAction
 
 import mne
 from scipy import signal

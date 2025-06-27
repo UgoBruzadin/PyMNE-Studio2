@@ -3,15 +3,15 @@
 import numpy as np
 from typing import Optional, List, Dict, Any, Tuple
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import SpanSelector
 import matplotlib.patches as mpatches
 
-from PyQt6.QtWidgets import QWidget, QMenu, QAction
+from PyQt6.QtWidgets import QWidget, QMenu
 from PyQt6.QtCore import Qt, pyqtSignal, QPointF
-from PyQt6.QtGui import QMouseEvent, QKeyEvent, QWheelEvent
+from PyQt6.QtGui import QMouseEvent, QKeyEvent, QWheelEvent, QAction
 
 import mne
 
